@@ -3,16 +3,37 @@
 // ==================================================
 // A classe funciona como um "molde" ou "planta baixa" para criar produtos.
 class Produto {
+    #preco
+    #quantidade
     constructor(nome, preco, quantidade) {
-        // Propriedades do objeto recebidas no momento da criação
+        if (nome == "") {
+            throw new Error("O nome não pode estar em branco!")
+        }
+
+        if (preco <= 0) {
+            throw new Error("O preço deve ser maior que zero!")
+        }
+
+        if (quantidade <= 0) {
+            throw new Error("A quantidade deve ser maior que zero!")
+        }
+
         this.nome = nome;
-        this.preco = parseFloat(preco); // Converte o texto do input para número decimal
-        this.quantidade = parseInt(quantidade); // Converte o texto do input para número inteiro
+        this.#preco = parseFloat(preco); // Converte o texto do input para número decimal
+        this.#quantidade = parseInt(quantidade); // Converte o texto do input para número inteiro
+    }
+
+    get preco() {
+        return this.#preco;
+    }
+
+    get quantidade() {
+        return this.#quantidade;
     }
 
     // Método que calcula o subtotal deste produto específico
     calcularSubtotal() {
-        return this.preco * this.quantidade;
+        return this.#preco * this.#quantidade;
     }
 }
 
@@ -30,6 +51,7 @@ const formProduto = document.getElementById("produto-form");
 
 // Adicionamos um escutador de eventos para quando o formulário for enviado (submit)
 formProduto.addEventListener("submit", function (event) {
+
     // Impede que a página recarregue ao enviar o formulário
     event.preventDefault();
 
@@ -38,15 +60,19 @@ formProduto.addEventListener("submit", function (event) {
     const precoInput = document.getElementById("preco").value;
     const quantidadeInput = document.getElementById("quantidade").value;
 
-    // 2. Cria uma nova instância da classe Produto (Instanciação)
-    const novoProduto = new Produto(nomeInput, precoInput, quantidadeInput);
+    try {
+        const novoProduto = new Produto(nomeInput, precoInput, quantidadeInput);
+        listaDeProdutos.push(novoProduto);
 
-    // 3. Adiciona o novo produto ao nosso Array de memória
-    listaDeProdutos.push(novoProduto);
+        // 4. Atualiza e exibe a tabela e o total, depois limpa o formulário
+        renderizarTabela();
+        atualizarTotalEstoque();
+        formProduto.reset();
 
-    // 4. Atualiza a exibição da tabela e limpa o formulário
-    renderizarTabela();
-    formProduto.reset();
+    } catch (erro) {
+        alert(erro.message);
+    }
+
 });
 
 // ==================================================
@@ -61,7 +87,7 @@ function renderizarTabela() {
     tabelaBody.innerHTML = "";
 
     // Percorre o Array de produtos usando forEach
-    listaDeProdutos.forEach((produto) => {
+    listaDeProdutos.forEach((produto, index) => {
         // Cria um elemento <tr> (linha da tabela)
         const linha = document.createElement("tr");
 
@@ -71,12 +97,45 @@ function renderizarTabela() {
             <td>R$ ${produto.preco.toFixed(2)}</td>
             <td>${produto.quantidade}</td>
             <td>R$ ${produto.calcularSubtotal().toFixed(2)}</td>
-    <td>
-        <button class="btn-remover">Remover</button>
-    </td>
-`;
+            <td>
+                <button class="btn-remover" onclick="removerProduto(${index})">Remover</button>
+            </td>
+        `;
 
-    // Insere a linha criada dentro do tbody da tabela
-    tabelaBody.appendChild(linha);
+        // Insere a linha criada dentro do tbody
+        tabelaBody.appendChild(linha);
     });
 }
+
+function atualizarTotalEstoque() {
+    // O reduce percorre o array e soma o subtotal de cada produto
+    const total = listaDeProdutos.reduce((soma, produto) => {
+        return soma + produto.calcularSubtotal();
+    }, 0);
+    const elementoTotal = document.getElementById("total-estoque");
+    elementoTotal.textContent = `Total em estoque: R$ ${total.toFixed(2).replace(".", ",")}`;
+}
+
+
+function removerProduto(index) {
+    listaDeProdutos.splice(index, 1);
+
+    // Atualiza a tabela depois da remoção
+    renderizarTabela();
+
+    // Atualiza o total do estoque depois da remoção
+    atualizarTotalEstoque();
+}
+
+const botaoLimpar = document.getElementById("limpar-tabela");
+
+// Adiciona um evento de clique no botão
+botaoLimpar.addEventListener("click", function () {
+
+    // Esvazia completamente o array de produtos
+    listaDeProdutos.length = 0;
+    renderizarTabela();
+
+    // Atualiza o total
+    atualizarTotalEstoque();
+});
