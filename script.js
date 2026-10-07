@@ -1,141 +1,164 @@
-// ==================================================
-// FASE 1: MODELAGEM DOS DADOS (Classe Base)
-// ==================================================
-// A classe funciona como um "molde" ou "planta baixa" para criar produtos.
+
+
+//
+// FASE 1: Modelagem dos dados (Classe Base)
+//
 class Produto {
-    #preco
-    #quantidade
     constructor(nome, preco, quantidade) {
-        if (nome == "") {
-            throw new Error("O nome não pode estar em branco!")
-        }
-
-        if (preco <= 0) {
-            throw new Error("O preço deve ser maior que zero!")
-        }
-
-        if (quantidade <= 0) {
-            throw new Error("A quantidade deve ser maior que zero!")
-        }
-
         this.nome = nome;
-        this.#preco = parseFloat(preco); // Converte o texto do input para número decimal
-        this.#quantidade = parseInt(quantidade); // Converte o texto do input para número inteiro
+        this.preco = parseFloat(preco);
+        this.quantidade = parseInt(quantidade);
     }
 
-    get preco() {
-        return this.#preco;
-    }
-
-    get quantidade() {
-        return this.#quantidade;
-    }
-
-    // Método que calcula o subtotal deste produto específico
+    // Método que calcula o subtotal do produto
     calcularSubtotal() {
-        return this.#preco * this.#quantidade;
+        return this.preco * this.quantidade;
     }
 }
 
-// ==================================================
-// FASE 2: GERENCIAMENTO DE ESTADO (Memória)
-// ==================================================
-// Array global que guardará todas as instâncias da classe Produto const listaDeProdutos = [];
+//
+// FASE 2: Gerenciamento de Estado (Memória)
+//
 const listaDeProdutos = [];
 
-// ==================================================
-// FASE 3: ESCUTA DE EVENTOS DO DOM
-// ==================================================
-// Selecionamos o formulário do HTML pelo ID
+//
+// 🆕 FASE 2.1: Persistência com localStorage
+//
+// Definimos uma constante para evitar erros de digitação ao usar a chave do localStorage
+const CHAVE_STORAGE = "sistema_estoque_produtos";
+
+// 1. Função para SALVAR os dados no navegador
+function salvarNoLocalStorage() {
+    // JSON.stringify converte o Array de Objetos JS em uma String JSON
+    const listaEmTexto = JSON.stringify(listaDeProdutos);
+    localStorage.setItem(CHAVE_STORAGE, listaEmTexto);
+}
+
+// 2. Função para CARREGAR os dados salvos quando a página abrir
+function carregarDoLocalStorage() {
+    const dadosSalvos = localStorage.getItem(CHAVE_STORAGE);
+
+    // Se existirem dados salvos anteriormente no navegador...
+    if (dadosSalvos) {
+        // Converte a string JSON de volta para um Array de objetos genéricos
+        const produtosObjetos = JSON.parse(dadosSalvos);
+
+        // ATENÇÃO (Conceito POO): Reinstanciamos cada produto com "new Produto()"
+        // para garantir que os objetos recuperem o método .calcularSubtotal()
+        produtosObjetos.forEach((prod) => {
+            const produtoInstanciado = new Produto(prod.nome, prod.preco, prod.quantidade);
+            listaDeProdutos.push(produtoInstanciado);
+        });
+    }
+}
+
+//
+// FASE 3: Captura de Elementos do DOM
+//
 const formProduto = document.getElementById("produto-form");
+const btnLimparTudo = document.getElementById("limpar-tabela");
+const totalEstoqueEl = document.getElementById("total-estoque");
 
-// Adicionamos um escutador de eventos para quando o formulário for enviado (submit)
+//
+// FASE 4: Escuta de Eventos
+//
+
+// 1. Adicionar Produto pelo Formulário
 formProduto.addEventListener("submit", function (event) {
-
-    // Impede que a página recarregue ao enviar o formulário
     event.preventDefault();
 
-    // 1. Captura os valores digitados nos campos de input do HTML
     const nomeInput = document.getElementById("nome").value;
     const precoInput = document.getElementById("preco").value;
     const quantidadeInput = document.getElementById("quantidade").value;
 
-    try {
-        const novoProduto = new Produto(nomeInput, precoInput, quantidadeInput);
-        listaDeProdutos.push(novoProduto);
+    const novoProduto = new Produto(nomeInput, precoInput, quantidadeInput);
 
-        // 4. Atualiza e exibe a tabela e o total, depois limpa o formulário
-        renderizarTabela();
-        atualizarTotalEstoque();
-        formProduto.reset();
+    listaDeProdutos.push(novoProduto);
 
-    } catch (erro) {
-        alert(erro.message);
-    }
+    // 🆕 Salva no localStorage sempre que um novo produto for adicionado
+    salvarNoLocalStorage();
 
+    atualizarInterface();
+    formProduto.reset();
 });
 
-// ==================================================
-// FASE 3: RENDERIZAÇÃO DA INTERFACE (DOM)
-// ==================================================
-// Função responsável por desenhar na tela o estado atual do Array listaDeProdutos
+// 2. Limpar toda a tabela
+btnLimparTudo.addEventListener("click", function () {
+    if (listaDeProdutos.length === 0) {
+        alert("A tabela já está vazia!");
+        return;
+    }
+
+    if (confirm("Tem certeza que deseja remover todos os produtos?")) {
+        listaDeProdutos.length = 0;
+
+        // 🆕 Remove a chave inteira do localStorage
+        localStorage.removeItem(CHAVE_STORAGE);
+
+        atualizarInterface();
+    }
+});
+
+//
+// FASE 5: Funções de Atualização e Renderização da Interface
+//
+
+// Função responsável por remover um único produto pelo índice
+function removerProduto(index) {
+    listaDeProdutos.splice(index, 1);
+
+    // 🆕 Salva a nova lista (sem o item removido) no localStorage
+    salvarNoLocalStorage();
+
+    atualizarInterface();
+}
+
+// Função responsável por calcular e renderizar o total geral em estoque
+function atualizarTotalEstoque() {
+    const total = listaDeProdutos.reduce((acc, produto) => {
+        return acc + produto.calcularSubtotal();
+    }, 0);
+
+    totalEstoqueEl.textContent = `Total em Estoque: R$ ${total.toFixed(2)}`;
+}
+
+// Função responsável por re-desenhar a tabela
 function renderizarTabela() {
-    // Seleciona o corpo da tabela (tbody)
     const tabelaBody = document.querySelector("#tabela-produtos tbody");
 
-    // Limpa o conteúdo anterior da tabela para evitar duplicações
     tabelaBody.innerHTML = "";
 
-    // Percorre o Array de produtos usando forEach
     listaDeProdutos.forEach((produto, index) => {
-        // Cria um elemento <tr> (linha da tabela)
         const linha = document.createElement("tr");
 
-        // Preenche o conteúdo interno da linha com os dados do objeto
         linha.innerHTML = `
             <td>${produto.nome}</td>
             <td>R$ ${produto.preco.toFixed(2)}</td>
             <td>${produto.quantidade}</td>
             <td>R$ ${produto.calcularSubtotal().toFixed(2)}</td>
             <td>
-                <button class="btn-remover" onclick="removerProduto(${index})">Remover</button>
+                <button class="btn-remover">Remover</button>
             </td>
         `;
 
-        // Insere a linha criada dentro do tbody
+        const btnRemover = linha.querySelector(".btn-remover");
+        btnRemover.addEventListener("click", () => removerProduto(index));
+
         tabelaBody.appendChild(linha);
     });
 }
 
-function atualizarTotalEstoque() {
-    // O reduce percorre o array e soma o subtotal de cada produto
-    const total = listaDeProdutos.reduce((soma, produto) => {
-        return soma + produto.calcularSubtotal();
-    }, 0);
-    const elementoTotal = document.getElementById("total-estoque");
-    elementoTotal.textContent = `Total em estoque: R$ ${total.toFixed(2).replace(".", ",")}`;
-}
-
-
-function removerProduto(index) {
-    listaDeProdutos.splice(index, 1);
-
-    // Atualiza a tabela depois da remoção
+// Função principal que sincroniza a tela com os dados
+function atualizarInterface() {
     renderizarTabela();
-
-    // Atualiza o total do estoque depois da remoção
     atualizarTotalEstoque();
 }
 
-const botaoLimpar = document.getElementById("limpar-tabela");
+//
+// 🆕 FASE 6: Inicialização da Aplicação
+//
+// Ao carregar o script pela primeira vez, restaura os dados do localStorage
+// e atualiza a interface gráfica.
+carregarDoLocalStorage();
+atualizarInterface();
 
-// Adiciona um evento de clique no botão
-botaoLimpar.addEventListener("click", function () {
-
-    // Esvazia completamente o array de produtos
-    listaDeProdutos.length = 0;
-    renderizarTabela();
-
-    // Atualiza o total
-    atualizarTotalEstoque();
-});
